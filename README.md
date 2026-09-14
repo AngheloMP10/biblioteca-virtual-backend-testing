@@ -287,7 +287,8 @@ biblioteca-virtual
 │     │           │  └─ TestSecurityConfig.java
 │     │           └─ service
 │     │              ├─ LibroServiceTest.java
-│     │              └─ PrestamoServiceTest.java
+│     │              ├─ PrestamoServiceTest.java
+│     │              └─ TwoFactorAuthServiceTest.java
 │     └─ resources
 │        └─ application-test.properties
 └─ system.properties
