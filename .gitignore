@@ -50,3 +50,9 @@ node_modules/
 # H2
 *.db
 *.mv.db
+
+# JMeter: archivos generados y datos sensibles
+/jmeter/tokens.csv
+/jmeter/solicitudes.csv
+/jmeter/results/
+/jmeter/*.jtl

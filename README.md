@@ -285,6 +285,8 @@ biblioteca-virtual
 │     │           │  ├─ GeneroControllerTest.java
 │     │           │  ├─ GeneroIntegrationTest.java
 │     │           │  └─ TestSecurityConfig.java
+│     │           ├─ repository
+│     │           │  └─ IPrestamoRepositoryTest.java
 │     │           └─ service
 │     │              ├─ LibroServiceTest.java
 │     │              ├─ PrestamoServiceTest.java
