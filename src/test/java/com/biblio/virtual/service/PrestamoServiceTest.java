@@ -12,6 +12,8 @@ import com.biblio.virtual.repository.IUsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -62,8 +64,6 @@ class PrestamoServiceTest {
     // ==================== Bloque 1: Solicitud de préstamos ====================
 
     @Test
-    // Verifica que se pueda solicitar un préstamo correctamente cuando hay
-    // disponibilidad.
     void solicitarPrestamo_caminoFeliz_creaPrestamoPendienteYNotifica() {
         when(prestamoRepo.countByUsuarioUsernameAndEstadoNotIn(eq("jdoe"), anyList())).thenReturn(1L);
         when(usuarioRepo.findByUsername("jdoe")).thenReturn(Optional.of(usuario));
@@ -82,8 +82,6 @@ class PrestamoServiceTest {
     }
 
     @Test
-    // Verifica que no se pueda solicitar un préstamo cuando el usuario ya tiene
-    // tres préstamos activos.
     void solicitarPrestamo_limiteDeTresPrestamos_lanzaExcepcion() {
         when(prestamoRepo.countByUsuarioUsernameAndEstadoNotIn(eq("jdoe"), anyList())).thenReturn(3L);
 
@@ -95,7 +93,6 @@ class PrestamoServiceTest {
     }
 
     @Test
-    // Verifica que se lance una excepción cuando el usuario no existe.
     void solicitarPrestamo_usuarioNoExiste_lanzaExcepcion() {
         when(prestamoRepo.countByUsuarioUsernameAndEstadoNotIn(eq("jdoe"), anyList())).thenReturn(0L);
         when(usuarioRepo.findByUsername("jdoe")).thenReturn(Optional.empty());
@@ -107,7 +104,6 @@ class PrestamoServiceTest {
     }
 
     @Test
-    // Verifica que se lance una excepción cuando el libro solicitado no existe.
     void solicitarPrestamo_libroNoExiste_lanzaExcepcion() {
         when(prestamoRepo.countByUsuarioUsernameAndEstadoNotIn(eq("jdoe"), anyList())).thenReturn(0L);
         when(usuarioRepo.findByUsername("jdoe")).thenReturn(Optional.of(usuario));
@@ -119,8 +115,6 @@ class PrestamoServiceTest {
     }
 
     @Test
-    // Verifica que no se pueda solicitar un préstamo cuando el libro no tiene stock
-    // disponible.
     void solicitarPrestamo_sinStock_lanzaExcepcion() {
         libro.setStock(0);
         when(prestamoRepo.countByUsuarioUsernameAndEstadoNotIn(eq("jdoe"), anyList())).thenReturn(0L);
@@ -128,6 +122,7 @@ class PrestamoServiceTest {
         when(libroRepo.findById(1L)).thenReturn(Optional.of(libro));
 
         assertThrows(RuntimeException.class, () -> prestamoService.solicitarPrestamo(1L, "jdoe"));
+
         verify(prestamoRepo, never()).save(any());
         verify(notificacionService, never()).enviarNotificacion(any());
     }
@@ -135,8 +130,6 @@ class PrestamoServiceTest {
     // ==================== Bloque 2: Transiciones de estado ====================
 
     @Test
-    // Verifica que un préstamo pendiente pueda aprobarse y que se reduzca el stock
-    // del libro.
     void aprobarPrestamo_conStockDisponible_cambiaEstadoYRestaStock() {
         prestamo.setEstado(EstadoPrestamo.PENDIENTE);
         when(prestamoRepo.findById(10L)).thenReturn(Optional.of(prestamo));
@@ -152,8 +145,8 @@ class PrestamoServiceTest {
     }
 
     @Test
-    // Verifica que no se pueda aprobar un préstamo cuando el libro no tiene stock.
     void aprobarPrestamo_sinStock_lanzaExcepcion() {
+        prestamo.setEstado(EstadoPrestamo.PENDIENTE); // precondicion valida: aqui se prueba la regla de stock
         libro.setStock(0);
         when(prestamoRepo.findById(10L)).thenReturn(Optional.of(prestamo));
 
@@ -165,8 +158,6 @@ class PrestamoServiceTest {
     }
 
     @Test
-    // Verifica que se lance una excepción cuando el préstamo que se quiere aprobar
-    // no existe.
     void aprobarPrestamo_noEncontrado_lanzaExcepcion() {
         when(prestamoRepo.findById(99L)).thenReturn(Optional.empty());
 
@@ -174,8 +165,6 @@ class PrestamoServiceTest {
     }
 
     @Test
-    // Verifica que un préstamo pendiente pueda rechazarse y se notifique al
-    // usuario.
     void rechazarPrestamo_cambiaEstadoYNotifica() {
         prestamo.setEstado(EstadoPrestamo.PENDIENTE);
         when(prestamoRepo.findById(10L)).thenReturn(Optional.of(prestamo));
@@ -183,13 +172,13 @@ class PrestamoServiceTest {
         prestamoService.rechazarPrestamo(10L);
 
         assertThat(prestamo.getEstado()).isEqualTo(EstadoPrestamo.RECHAZADO);
+        assertThat(libro.getStock()).isEqualTo(5); // PENDIENTE nunca desconto stock
+        verify(libroRepo, never()).save(any());
         verify(prestamoRepo).save(prestamo);
         verify(notificacionService).enviarNotificacion(any(NotificacionDTO.class));
     }
 
     @Test
-    // Verifica que un préstamo aprobado pase a estar en préstamo y establezca la
-    // fecha de devolución.
     void entregarPrestamo_estadoAprobado_cambiaAEnPrestamoYFijaFechaDevolucion() {
         prestamo.setEstado(EstadoPrestamo.APROBADO);
         when(prestamoRepo.findById(10L)).thenReturn(Optional.of(prestamo));
@@ -202,8 +191,6 @@ class PrestamoServiceTest {
     }
 
     @Test
-    // Verifica que no se pueda entregar un préstamo que todavía no ha sido
-    // aprobado.
     void entregarPrestamo_estadoNoAprobado_lanzaIllegalStateException() {
         prestamo.setEstado(EstadoPrestamo.PENDIENTE);
         when(prestamoRepo.findById(10L)).thenReturn(Optional.of(prestamo));
@@ -214,8 +201,6 @@ class PrestamoServiceTest {
     }
 
     @Test
-    // Verifica que al finalizar un préstamo se recupere el stock y se actualice la
-    // fecha de devolución.
     void finalizarPrestamo_estadoEnPrestamo_recuperaStockYFinaliza() {
         prestamo.setEstado(EstadoPrestamo.EN_PRESTAMO);
         libro.setStock(4);
@@ -233,8 +218,6 @@ class PrestamoServiceTest {
     }
 
     @Test
-    // Verifica que no se pueda finalizar un préstamo que no está actualmente en
-    // préstamo.
     void finalizarPrestamo_estadoNoEnPrestamo_lanzaExcepcion() {
         prestamo.setEstado(EstadoPrestamo.PENDIENTE);
         when(prestamoRepo.findById(10L)).thenReturn(Optional.of(prestamo));
@@ -246,11 +229,87 @@ class PrestamoServiceTest {
         verify(notificacionService, never()).enviarNotificacion(any());
     }
 
+    // ==================== Regresion: BUG-01 y BUG-02 (precondiciones de estado e
+    // inventario) ====================
+
+    // BUG-01: aprobar un prestamo que ya no estaba PENDIENTE descontaba el stock
+    // otra vez
+    @ParameterizedTest(name = "aprobarPrestamo con estado {0} lanza IllegalStateException")
+    @EnumSource(value = EstadoPrestamo.class, names = "PENDIENTE", mode = EnumSource.Mode.EXCLUDE)
+    void aprobarPrestamo_estadoDistintoDePendiente_lanzaIllegalStateException(EstadoPrestamo estado) {
+        prestamo.setEstado(estado);
+        libro.setStock(4);
+        when(prestamoRepo.findById(10L)).thenReturn(Optional.of(prestamo));
+
+        assertThrows(IllegalStateException.class, () -> prestamoService.aprobarPrestamo(10L));
+
+        assertThat(libro.getStock()).isEqualTo(4);
+        assertThat(prestamo.getEstado()).isEqualTo(estado);
+        verify(libroRepo, never()).save(any());
+        verify(prestamoRepo, never()).save(any());
+        verify(notificacionService, never()).enviarNotificacion(any());
+    }
+
+    @Test
+    void aprobarPrestamo_dobleAprobacion_soloDescuentaUnaVez() {
+        prestamo.setEstado(EstadoPrestamo.PENDIENTE);
+        when(prestamoRepo.findById(10L)).thenReturn(Optional.of(prestamo));
+
+        prestamoService.aprobarPrestamo(10L); // 1.a aprobacion: valida (5 -> 4)
+        assertThrows(IllegalStateException.class, () -> prestamoService.aprobarPrestamo(10L)); // 2.a: rechazada
+
+        assertThat(libro.getStock()).isEqualTo(4);
+    }
+
+    // BUG-02: rechazar un prestamo APROBADO no devolvia el stock que la aprobacion
+    // ya habia descontado
+    @Test
+    void rechazarPrestamo_aprobado_devuelveElStockDescontado() {
+        prestamo.setEstado(EstadoPrestamo.APROBADO);
+        libro.setStock(4);
+        when(prestamoRepo.findById(10L)).thenReturn(Optional.of(prestamo));
+
+        prestamoService.rechazarPrestamo(10L);
+
+        assertThat(prestamo.getEstado()).isEqualTo(EstadoPrestamo.RECHAZADO);
+        assertThat(libro.getStock()).isEqualTo(5);
+        verify(libroRepo).save(libro);
+        verify(prestamoRepo).save(prestamo);
+        verify(notificacionService).enviarNotificacion(any(NotificacionDTO.class));
+    }
+
+    @Test
+    void inventario_aprobarYLuegoRechazar_dejaElStockIgualQueAlInicio() {
+        prestamo.setEstado(EstadoPrestamo.PENDIENTE);
+        when(prestamoRepo.findById(10L)).thenReturn(Optional.of(prestamo));
+        int stockInicial = libro.getStock();
+
+        prestamoService.aprobarPrestamo(10L);
+        prestamoService.rechazarPrestamo(10L);
+
+        assertThat(libro.getStock()).isEqualTo(stockInicial);
+    }
+
+    // Un prestamo ya entregado, finalizado o rechazado no puede volver a rechazarse
+    @ParameterizedTest(name = "rechazarPrestamo con estado {0} lanza IllegalStateException")
+    @EnumSource(value = EstadoPrestamo.class, names = { "EN_PRESTAMO", "FINALIZADO", "RECHAZADO" })
+    void rechazarPrestamo_estadoNoRechazable_lanzaIllegalStateException(EstadoPrestamo estado) {
+        prestamo.setEstado(estado);
+        libro.setStock(4);
+        when(prestamoRepo.findById(10L)).thenReturn(Optional.of(prestamo));
+
+        assertThrows(IllegalStateException.class, () -> prestamoService.rechazarPrestamo(10L));
+
+        assertThat(libro.getStock()).isEqualTo(4);
+        assertThat(prestamo.getEstado()).isEqualTo(estado);
+        verify(prestamoRepo, never()).save(any());
+        verify(libroRepo, never()).save(any());
+        verify(notificacionService, never()).enviarNotificacion(any());
+    }
+
     // ==================== Listados ====================
 
     @Test
-    // Verifica que el método findAll obtenga correctamente todos los préstamos
-    // desde el repositorio.
     void findAll_delegaAlRepositorio() {
         when(prestamoRepo.findAll()).thenReturn(List.of(prestamo));
 
@@ -260,8 +319,6 @@ class PrestamoServiceTest {
     }
 
     @Test
-    // Verifica que el método findByUsername obtenga los préstamos asociados a un
-    // usuario.
     void findByUsername_delegaAlRepositorio() {
         when(prestamoRepo.findByUsuarioUsername("jdoe")).thenReturn(List.of(prestamo));
 
