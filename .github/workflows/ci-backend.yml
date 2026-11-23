@@ -1,0 +1,101 @@
+name: Backend CI - Regresion por niveles
+
+# Va en el repo del BACKEND: .github/workflows/ci-backend.yml
+# Nivel 1 (Smoke):      cada PR y cada push        -> mvn test -Dgroups=smoke
+# Nivel 2 (Regression): cada push a main/develop   -> todo excepto lo etiquetado "nightly"
+# Nivel 3 (Nightly):    diario 02:00 hora de Lima  -> suite completa (incluye integracion)
+
+on:
+  pull_request:
+    branches: ["main", "develop"]
+  push:
+    branches: ["main", "develop"]
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC = 02:00 en Lima (UTC-5)
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Nivel 1 - Smoke
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Pruebas smoke
+        run: mvn -B test -Dgroups=smoke
+
+      - name: Subir reportes de Surefire
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-smoke
+          path: target/surefire-reports
+          if-no-files-found: ignore
+
+  regression:
+    name: Nivel 2 - Regression
+    if: github.event_name == 'push'
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Pruebas de regresion (todo excepto nightly)
+        run: mvn -B test -DexcludedGroups=nightly
+
+      - name: Subir reportes (Surefire y JaCoCo)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-regression
+          path: |
+            target/surefire-reports
+            target/site/jacoco
+          if-no-files-found: ignore
+
+  nightly:
+    name: Nivel 3 - Nightly
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      SPRING_PROFILES_ACTIVE: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Suite completa (incluye pruebas de integracion)
+        run: mvn -B verify
+
+      - name: Subir reportes (Surefire y JaCoCo)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-nightly
+          path: |
+            target/surefire-reports
+            target/site/jacoco
+          if-no-files-found: ignore
