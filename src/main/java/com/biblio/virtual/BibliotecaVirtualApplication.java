@@ -1,9 +1,5 @@
 package com.biblio.virtual;
 
-import com.biblio.virtual.model.Usuario;
-import com.biblio.virtual.repository.IUsuarioRepository;
-import com.biblio.virtual.security.Roles;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -11,14 +7,21 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.biblio.virtual.model.Usuario;
+import com.biblio.virtual.repository.IUsuarioRepository;
+import com.biblio.virtual.security.Roles;
+
 @SpringBootApplication
 public class BibliotecaVirtualApplication {
 
-	@Autowired
-	private IUsuarioRepository usuarioRepository;
-
-	@Autowired
-	private PasswordEncoder passwordEncoder;
+	// Antes IUsuarioRepository y PasswordEncoder eran campos @Autowired de esta
+	// clase. Como esta es
+	// la clase de configuracion raiz, TODO test de slice (@WebMvcTest,
+	// @DataJpaTest) intentaba
+	// inyectarlos y fallaba con NoSuchBeanDefinitionException. Ahora son parametros
+	// del @Bean: solo
+	// se resuelven cuando el bean se crea, y con @Profile("!test") no se crea en
+	// las pruebas.
 
 	public static void main(String[] args) {
 		SpringApplication.run(BibliotecaVirtualApplication.class, args);
@@ -26,7 +29,7 @@ public class BibliotecaVirtualApplication {
 
 	@Bean
 	@Profile("!test")
-	public CommandLineRunner initData() {
+	public CommandLineRunner initData(IUsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
 		return args -> {
 
 			if (usuarioRepository.findByUsername("admin").isEmpty()) {
