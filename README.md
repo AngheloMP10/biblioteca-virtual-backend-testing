@@ -186,6 +186,14 @@ biblioteca-virtual
 │     └─ maven-wrapper.properties
 ├─ docker-compose.yml
 ├─ Dockerfile
+├─ jmeter
+│  ├─ catalogo-get.jmx
+│  ├─ prepare-data.ps1
+│  ├─ README.md
+│  ├─ resumen.ps1
+│  ├─ run-perf.ps1
+│  ├─ seed-perf.sql
+│  └─ solicitud-post.jmx
 ├─ mvnw
 ├─ mvnw.cmd
 ├─ pom.xml

@@ -6,6 +6,7 @@ import com.biblio.virtual.model.Prestamo;
 import com.biblio.virtual.model.Usuario;
 import com.biblio.virtual.model.enums.EstadoPrestamo;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -24,6 +25,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 // Verifica las consultas reales del repositorio utilizando JPA, Hibernate y una base de datos H2 de prueba.
+@Tag("nightly")
 @DataJpaTest
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -157,8 +159,9 @@ class IPrestamoRepositoryTest {
 
         assertThat(total).isEqualTo(2);
     }
-    
-    // Verifica que se cuenten únicamente los préstamos que tienen exactamente el estado indicado.
+
+    // Verifica que se cuenten únicamente los préstamos que tienen exactamente el
+    // estado indicado.
     @Test
     void countByEstado_cuentaSoloElEstadoIndicado() {
         Genero genero = crearGenero("Ficción");

@@ -14,10 +14,18 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/dashboard")
 @CrossOrigin(origins = "*")
+// Fix Broken Access Control (APF2): antes cualquier usuario autenticado
+// (ROLE_USER) podia leer
+// las metricas de toda la biblioteca y exportarlas. Solo ADMIN, igual que la
+// ruta del frontend
+// (adminGuard) y que el menu "Dashboard" del navbar. Aplica a /dashboard,
+// /filtrar y /exportar.
+@PreAuthorize("hasAuthority(@roles.ADMIN())")
 public class DashboardController {
 
   private final IDashboardService dashboardService;

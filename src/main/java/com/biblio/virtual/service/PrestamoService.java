@@ -67,11 +67,10 @@ public class PrestamoService implements IPrestamoService {
 
 		// Enviar notificación
 		notificacionService.enviarNotificacion(new NotificacionDTO(
-			"PRESTAMO_CREADO",
-			"Se ha registrado un nuevo préstamo",
-			prestamoGuardado.getId(),
-			LocalDateTime.now()
-		));
+				"PRESTAMO_CREADO",
+				"Se ha registrado un nuevo préstamo",
+				prestamoGuardado.getId(),
+				LocalDateTime.now()));
 
 		return prestamoGuardado;
 	}
@@ -81,6 +80,14 @@ public class PrestamoService implements IPrestamoService {
 	public void aprobarPrestamo(Long id) {
 
 		Prestamo prestamo = prestamoRepo.findById(id).orElseThrow(() -> new RuntimeException("Préstamo no encontrado"));
+
+		// BUG-01: solo se aprueba una solicitud PENDIENTE. Antes se podía aprobar de
+		// nuevo un
+		// préstamo ya aprobado (o en otro estado) y se descontaba el stock más de una
+		// vez.
+		if (prestamo.getEstado() != EstadoPrestamo.PENDIENTE) {
+			throw new IllegalStateException("Solo se pueden aprobar préstamos en estado PENDIENTE");
+		}
 
 		Libro libro = prestamo.getLibro();
 
@@ -97,28 +104,48 @@ public class PrestamoService implements IPrestamoService {
 
 		// Enviar notificación
 		notificacionService.enviarNotificacion(new NotificacionDTO(
-			"PRESTAMO_APROBADO",
-			"El préstamo ha sido aprobado",
-			prestamo.getId(),
-			LocalDateTime.now()
-		));
+				"PRESTAMO_APROBADO",
+				"El préstamo ha sido aprobado",
+				prestamo.getId(),
+				LocalDateTime.now()));
 	}
 
 	@Override
 	@Transactional
 	public void rechazarPrestamo(Long id) {
-		// Cambiar estado a RECHAZADO
 		Prestamo prestamo = prestamoRepo.findById(id).orElseThrow(() -> new RuntimeException("Préstamo no encontrado"));
+
+		EstadoPrestamo estadoPrevio = prestamo.getEstado();
+
+		// Solo se rechaza una solicitud PENDIENTE o una ya APROBADA que aún no se
+		// entregó.
+		// EN_PRESTAMO, FINALIZADO y RECHAZADO no admiten rechazo (el stock quedaría
+		// inconsistente).
+		if (estadoPrevio != EstadoPrestamo.PENDIENTE && estadoPrevio != EstadoPrestamo.APROBADO) {
+			throw new IllegalStateException("Solo se pueden rechazar préstamos en estado PENDIENTE o APROBADO");
+		}
+
+		// Cambiar estado a RECHAZADO
 		prestamo.setEstado(EstadoPrestamo.RECHAZADO);
+
+		// BUG-02: si estaba APROBADO, la aprobación ya había descontado 1 unidad; se
+		// devuelve.
+		// (Una solicitud PENDIENTE nunca descontó stock, así que no se toca el
+		// inventario.)
+		if (estadoPrevio == EstadoPrestamo.APROBADO) {
+			Libro libro = prestamo.getLibro();
+			libro.setStock(libro.getStock() + 1);
+			libroRepo.save(libro);
+		}
+
 		prestamoRepo.save(prestamo);
 
 		// Enviar notificación
 		notificacionService.enviarNotificacion(new NotificacionDTO(
-			"PRESTAMO_RECHAZADO",
-			"El préstamo ha sido rechazado",
-			prestamo.getId(),
-			LocalDateTime.now()
-		));
+				"PRESTAMO_RECHAZADO",
+				"El préstamo ha sido rechazado",
+				prestamo.getId(),
+				LocalDateTime.now()));
 	}
 
 	@Override
@@ -161,11 +188,10 @@ public class PrestamoService implements IPrestamoService {
 
 		// Enviar notificación
 		notificacionService.enviarNotificacion(new NotificacionDTO(
-			"PRESTAMO_DEVUELTO",
-			"Un libro ha sido devuelto",
-			prestamo.getId(),
-			LocalDateTime.now()
-		));
+				"PRESTAMO_DEVUELTO",
+				"Un libro ha sido devuelto",
+				prestamo.getId(),
+				LocalDateTime.now()));
 	}
 
 	@Override
