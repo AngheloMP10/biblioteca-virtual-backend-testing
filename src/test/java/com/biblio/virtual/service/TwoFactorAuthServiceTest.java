@@ -4,11 +4,13 @@ import com.warrenstrange.googleauth.GoogleAuthenticator;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag("regression")
 class TwoFactorAuthServiceTest {
 
     private TwoFactorAuthService service;
@@ -22,6 +24,7 @@ class TwoFactorAuthServiceTest {
 
     // ==================== generateSecret ====================
     // Verifica que se genere un secreto Base32 válido y no vacío.
+    @Tag("smoke")
     @Test
     void generateSecret_devuelveUnSecretoBase32NoVacio() {
         String secret = service.generateSecret();
@@ -42,6 +45,7 @@ class TwoFactorAuthServiceTest {
 
     // ==================== validateCode ====================
     // Verifica que un código TOTP válido para el secreto actual sea aceptado.
+    @Tag("smoke")
     @Test
     void validateCode_codigoValidoParaElInstanteActual_retornaTrue() {
         String secret = service.generateSecret();
@@ -51,6 +55,7 @@ class TwoFactorAuthServiceTest {
     }
 
     // Verifica que un código que no corresponde al secreto sea rechazado.
+    @Tag("smoke")
     @Test
     void validateCode_codigoQueNoCorrespondeAlSecreto_retornaFalse() {
         String secret = service.generateSecret();

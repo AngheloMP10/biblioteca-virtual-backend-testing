@@ -11,6 +11,7 @@ import com.biblio.virtual.repository.IUsuarioRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -27,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@Tag("regression")
 @ExtendWith(MockitoExtension.class)
 class PrestamoServiceTest {
 
@@ -62,7 +64,7 @@ class PrestamoServiceTest {
     }
 
     // ==================== Bloque 1: Solicitud de préstamos ====================
-
+    @Tag("smoke")
     @Test
     void solicitarPrestamo_caminoFeliz_creaPrestamoPendienteYNotifica() {
         when(prestamoRepo.countByUsuarioUsernameAndEstadoNotIn(eq("jdoe"), anyList())).thenReturn(1L);
@@ -81,6 +83,7 @@ class PrestamoServiceTest {
         verify(notificacionService).enviarNotificacion(any(NotificacionDTO.class));
     }
 
+    @Tag("smoke")
     @Test
     void solicitarPrestamo_limiteDeTresPrestamos_lanzaExcepcion() {
         when(prestamoRepo.countByUsuarioUsernameAndEstadoNotIn(eq("jdoe"), anyList())).thenReturn(3L);
@@ -114,6 +117,7 @@ class PrestamoServiceTest {
         verify(prestamoRepo, never()).save(any());
     }
 
+    @Tag("smoke")
     @Test
     void solicitarPrestamo_sinStock_lanzaExcepcion() {
         libro.setStock(0);
@@ -128,7 +132,7 @@ class PrestamoServiceTest {
     }
 
     // ==================== Bloque 2: Transiciones de estado ====================
-
+    @Tag("smoke")
     @Test
     void aprobarPrestamo_conStockDisponible_cambiaEstadoYRestaStock() {
         prestamo.setEstado(EstadoPrestamo.PENDIENTE);
@@ -200,6 +204,7 @@ class PrestamoServiceTest {
         verify(prestamoRepo, never()).save(any());
     }
 
+    @Tag("smoke")
     @Test
     void finalizarPrestamo_estadoEnPrestamo_recuperaStockYFinaliza() {
         prestamo.setEstado(EstadoPrestamo.EN_PRESTAMO);
@@ -250,6 +255,7 @@ class PrestamoServiceTest {
         verify(notificacionService, never()).enviarNotificacion(any());
     }
 
+    @Tag("smoke")
     @Test
     void aprobarPrestamo_dobleAprobacion_soloDescuentaUnaVez() {
         prestamo.setEstado(EstadoPrestamo.PENDIENTE);
@@ -263,6 +269,7 @@ class PrestamoServiceTest {
 
     // BUG-02: rechazar un prestamo APROBADO no devolvia el stock que la aprobacion
     // ya habia descontado
+    @Tag("smoke")
     @Test
     void rechazarPrestamo_aprobado_devuelveElStockDescontado() {
         prestamo.setEstado(EstadoPrestamo.APROBADO);

@@ -1,18 +1,20 @@
+
 package com.biblio.virtual.controller;
 
-import com.biblio.virtual.config.SecurityConfig;
 import com.biblio.virtual.dto.GeneroDTO;
 import com.biblio.virtual.mapper.GeneroMapper;
 import com.biblio.virtual.model.Genero;
-import com.biblio.virtual.repository.IUsuarioRepository;
 import com.biblio.virtual.security.RoleExpressions;
 import com.biblio.virtual.security.Roles;
 import com.biblio.virtual.service.CustomUserDetailsService;
 import com.biblio.virtual.service.IGeneroService;
 import com.biblio.virtual.util.JwtUtil;
-import com.biblio.virtual.filter.JwtRequestFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -21,7 +23,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.context.WebApplicationContext;
+
+import org.springframework.security.test.context.support.WithMockUser;
 
 import java.util.Arrays;
 import java.util.List;
@@ -29,16 +32,12 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.test.context.support.WithMockUser;
-
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import java.util.Arrays;
 
+@Tag("regression")
 @WebMvcTest(GeneroController.class)
 @Import(TestSecurityConfig.class)
 @AutoConfigureMockMvc
@@ -54,14 +53,24 @@ class GeneroControllerTest {
 	@MockBean
 	private GeneroMapper generoMapper;
 
+	@MockBean
+	private CustomUserDetailsService customUserDetailsService;
+
+	@MockBean
+	private JwtUtil jwtUtil;
+
 	@Autowired
 	private ObjectMapper objectMapper;
 
-	@Autowired
-	private WebApplicationContext context;
-
-	@MockBean
+	@MockBean(name = "roles")
 	private RoleExpressions roles;
+
+	@BeforeEach
+	void configurarRoles() {
+		when(roles.ADMIN()).thenReturn(Roles.ADMIN);
+		when(roles.BIBLIOTECARIO()).thenReturn(Roles.BIBLIOTECARIO);
+		when(roles.USER()).thenReturn(Roles.USER);
+	}
 
 	@Test
 	@WithMockUser(username = "admin", roles = { "ADMIN" })
@@ -89,7 +98,8 @@ class GeneroControllerTest {
 		when(generoService.findAll()).thenReturn(generos);
 		when(generoMapper.toDtoList(any())).thenReturn(dtos);
 
-		mockMvc.perform(get("/generos")).andDo(print()).andExpect(status().isOk());
+		mockMvc.perform(get("/generos"))
+				.andExpect(status().isOk());
 	}
 
 	@Test
@@ -99,7 +109,8 @@ class GeneroControllerTest {
 		when(generoService.findAll()).thenReturn(List.of());
 		when(generoMapper.toDtoList(any())).thenReturn(List.of());
 
-		mockMvc.perform(get("/generos")).andExpect(status().isOk());
+		mockMvc.perform(get("/generos"))
+				.andExpect(status().isOk());
 
 		verify(generoService).findAll();
 	}
@@ -118,9 +129,11 @@ class GeneroControllerTest {
 		when(generoService.findById(1L)).thenReturn(genero);
 		when(generoMapper.toDto(genero)).thenReturn(dto);
 
-		mockMvc.perform(get("/generos/1")).andExpect(status().isOk())
+		mockMvc.perform(get("/generos/1"))
+				.andExpect(status().isOk())
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-				.andExpect(jsonPath("$.id").value(1)).andExpect(jsonPath("$.nombre").value("Terror"));
+				.andExpect(jsonPath("$.id").value(1))
+				.andExpect(jsonPath("$.nombre").value("Terror"));
 	}
 
 	@Test
@@ -129,7 +142,8 @@ class GeneroControllerTest {
 
 		when(generoService.findById(999L)).thenReturn(null);
 
-		mockMvc.perform(get("/generos/999")).andExpect(status().isNotFound());
+		mockMvc.perform(get("/generos/999"))
+				.andExpect(status().isNotFound());
 
 		verify(generoService).findById(999L);
 		verify(generoMapper, never()).toDto(any());
@@ -156,10 +170,14 @@ class GeneroControllerTest {
 		when(generoService.save(entity)).thenReturn(savedEntity);
 		when(generoMapper.toDto(savedEntity)).thenReturn(responseDto);
 
-		mockMvc.perform(post("/generos").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(requestDto))).andExpect(status().isOk())
+		mockMvc.perform(post("/generos")
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(requestDto)))
+				.andExpect(status().isOk())
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-				.andExpect(jsonPath("$.id").value(1)).andExpect(jsonPath("$.nombre").value("Aventura"));
+				.andExpect(jsonPath("$.id").value(1))
+				.andExpect(jsonPath("$.nombre").value("Aventura"));
 
 		verify(generoService, times(1)).save(entity);
 	}
@@ -170,8 +188,11 @@ class GeneroControllerTest {
 		GeneroDTO dto = new GeneroDTO();
 		dto.setNombre("Drama");
 
-		mockMvc.perform(post("/generos").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(dto))).andExpect(status().isForbidden());
+		mockMvc.perform(post("/generos")
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(dto)))
+				.andExpect(status().isForbidden());
 
 		verify(generoService, never()).save(any());
 	}
@@ -198,10 +219,14 @@ class GeneroControllerTest {
 		when(generoService.save(any(Genero.class))).thenReturn(actualizado);
 		when(generoMapper.toDto(actualizado)).thenReturn(responseDto);
 
-		mockMvc.perform(put("/generos/1").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(requestDto))).andExpect(status().isOk())
+		mockMvc.perform(put("/generos/1")
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(requestDto)))
+				.andExpect(status().isOk())
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-				.andExpect(jsonPath("$.id").value(1)).andExpect(jsonPath("$.nombre").value("Ciencia Ficción"));
+				.andExpect(jsonPath("$.id").value(1))
+				.andExpect(jsonPath("$.nombre").value("Ciencia Ficción"));
 
 		verify(generoService, times(1)).save(any(Genero.class));
 	}
@@ -212,7 +237,8 @@ class GeneroControllerTest {
 
 		when(generoService.findById(999L)).thenReturn(null);
 
-		mockMvc.perform(delete("/generos/999").with(csrf())).andDo(print()).andExpect(status().isNotFound());
+		mockMvc.perform(delete("/generos/999").with(csrf()))
+				.andExpect(status().isNotFound());
 
 		verify(generoService).findById(999L);
 		verify(generoService, never()).delete(anyLong());
@@ -227,9 +253,9 @@ class GeneroControllerTest {
 
 		when(generoService.findById(1L)).thenReturn(existente);
 
-		mockMvc.perform(delete("/generos/1").with(csrf())).andExpect(status().isNoContent());
+		mockMvc.perform(delete("/generos/1").with(csrf()))
+				.andExpect(status().isNoContent());
 
 		verify(generoService, times(1)).delete(1L);
 	}
-
 }
